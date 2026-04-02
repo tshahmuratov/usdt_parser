@@ -1,0 +1,13 @@
+with-expecter: true
+dir: mocks/{{ replaceAll .InterfaceDirRelative "internal/" "" }}
+mockname: "Mock{{ .InterfaceName }}"
+outpkg: "{{ .PackageName }}_mocks"
+packages:
+  github.com/tshahmuratov/usdt_parser/internal/domain/rates/rates_interface:
+    interfaces:
+      ExchangeClient:
+      RateRepository:
+      AsyncRatePersister:
+  github.com/tshahmuratov/usdt_parser/internal/domain/rates/rates_handler:
+    interfaces:
+      RateServicer:

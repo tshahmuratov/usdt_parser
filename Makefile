@@ -14,6 +14,7 @@ run:
 
 generate:
 	buf generate
+	mockery
 
 docker-build:
 	docker build -t usdt-parser .
