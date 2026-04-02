@@ -12,10 +12,11 @@ import (
 )
 
 func TestGrinexClient_FetchDepth(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
+	t.Run("success with limit", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "/api/v1/spot/depth", r.URL.Path)
 			assert.Equal(t, "usdta7a5", r.URL.Query().Get("symbol"))
+			assert.Equal(t, "20", r.URL.Query().Get("limit"))
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{
 				"timestamp": 1700000000,
@@ -25,7 +26,7 @@ func TestGrinexClient_FetchDepth(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := grinex.NewGrinexClient(server.URL, 0)
+		client := grinex.NewGrinexClient(server.URL, 0, 20)
 		depth, err := client.FetchDepth(context.Background())
 
 		require.NoError(t, err)
@@ -41,7 +42,7 @@ func TestGrinexClient_FetchDepth(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := grinex.NewGrinexClient(server.URL, 0)
+		client := grinex.NewGrinexClient(server.URL, 0, 20)
 		_, err := client.FetchDepth(context.Background())
 		require.Error(t, err)
 	})
@@ -52,7 +53,7 @@ func TestGrinexClient_FetchDepth(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := grinex.NewGrinexClient(server.URL, 0)
+		client := grinex.NewGrinexClient(server.URL, 0, 20)
 		_, err := client.FetchDepth(context.Background())
 		require.Error(t, err)
 	})

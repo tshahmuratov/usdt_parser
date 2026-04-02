@@ -50,8 +50,9 @@ type GRPCConfig struct {
 }
 
 type GrinexConfig struct {
-	BaseURL string
-	Timeout time.Duration
+	BaseURL    string
+	Timeout    time.Duration
+	DepthLimit int
 }
 
 type OTelConfig struct {
@@ -78,6 +79,7 @@ func Load() (*Config, error) {
 	f.Int("grpc-port", 50051, "gRPC server port")
 	f.String("grinex-base-url", "https://grinex.io", "Grinex API base URL")
 	f.Duration("grinex-timeout", 10*time.Second, "Grinex API timeout")
+	f.Int("grinex-depth-limit", 20, "Grinex depth API entry limit (0 = no limit)")
 	f.Int("db-max-open-conns", 25, "Database max open connections")
 	f.Int("db-max-idle-conns", 5, "Database max idle connections")
 	f.Duration("db-conn-max-lifetime", 5*time.Minute, "Database connection max lifetime")
@@ -123,8 +125,9 @@ func Load() (*Config, error) {
 			Port: k.Int("grpc.port"),
 		},
 		Grinex: GrinexConfig{
-			BaseURL: k.String("grinex.base.url"),
-			Timeout: k.Duration("grinex.timeout"),
+			BaseURL:    k.String("grinex.base.url"),
+			Timeout:    k.Duration("grinex.timeout"),
+			DepthLimit: k.Int("grinex.depth.limit"),
 		},
 		OTel: OTelConfig{
 			Endpoint: k.String("otel.endpoint"),
@@ -159,6 +162,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.Grinex.Timeout == 0 {
 		cfg.Grinex.Timeout = 10 * time.Second
+	}
+	if cfg.Grinex.DepthLimit == 0 {
+		cfg.Grinex.DepthLimit = 20
 	}
 	if cfg.OTel.Endpoint == "" {
 		cfg.OTel.Endpoint = "localhost:4317"

@@ -7,6 +7,6 @@ import (
 
 var Module = fx.Module("grinex",
 	fx.Provide(func(cfg *config.Config) *GrinexClient {
-		return NewGrinexClient(cfg.Grinex.BaseURL, cfg.Grinex.Timeout)
+		return NewGrinexClient(cfg.Grinex.BaseURL, cfg.Grinex.Timeout, cfg.Grinex.DepthLimit)
 	}),
 )

@@ -1,6 +1,7 @@
 package grinex
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,23 +28,29 @@ type depthEntry struct {
 }
 
 type GrinexClient struct {
-	client  *resty.Client
-	baseURL string
+	client     *resty.Client
+	baseURL    string
+	depthLimit int
 }
 
-func NewGrinexClient(baseURL string, timeout time.Duration) *GrinexClient {
+func NewGrinexClient(baseURL string, timeout time.Duration, depthLimit int) *GrinexClient {
 	if timeout == 0 {
 		timeout = 10 * time.Second
 	}
 	c := resty.New().SetTimeout(timeout)
-	return &GrinexClient{client: c, baseURL: baseURL}
+	return &GrinexClient{client: c, baseURL: baseURL, depthLimit: depthLimit}
 }
 
 func (g *GrinexClient) FetchDepth(ctx context.Context) (*rates_model.SpotDepth, error) {
-	r, err := g.client.R().
+	req := g.client.R().
 		SetContext(ctx).
-		SetQueryParam("symbol", "usdta7a5").
-		Get(g.baseURL + "/api/v1/spot/depth")
+		SetQueryParam("symbol", "usdta7a5")
+
+	if g.depthLimit > 0 {
+		req.SetQueryParam("limit", strconv.Itoa(g.depthLimit))
+	}
+
+	r, err := req.Get(g.baseURL + "/api/v1/spot/depth")
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", rates_model.ErrFetchFailed, err)
 	}
@@ -52,7 +59,7 @@ func (g *GrinexClient) FetchDepth(ctx context.Context) (*rates_model.SpotDepth, 
 	}
 
 	var resp depthResponse
-	if err := json.Unmarshal(r.Body(), &resp); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(r.Body())).Decode(&resp); err != nil {
 		return nil, fmt.Errorf("%w: %v", rates_model.ErrFetchFailed, err)
 	}
 
