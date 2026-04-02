@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net"
 
+	"time"
+
 	ratesv1 "github.com/tshahmuratov/usdt_parser/gen/rates/v1"
 	"github.com/tshahmuratov/usdt_parser/internal/domain/rates/rates_handler"
 	"github.com/tshahmuratov/usdt_parser/internal/pkg/config"
+	"github.com/tshahmuratov/usdt_parser/internal/pkg/metrics"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -18,6 +21,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
+	grpcstatus "google.golang.org/grpc/status"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
@@ -27,11 +31,13 @@ type ServerParams struct {
 	Config  *config.Config
 	Logger  *zap.Logger
 	Handler *rates_handler.RatesHandler
+	Metrics *metrics.Metrics
 }
 
 func NewServer(p ServerParams) *grpc.Server {
 	srv := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(metricsUnaryInterceptor(p.Metrics)),
 	)
 
 	ratesv1.RegisterRateServiceServer(srv, p.Handler)
@@ -105,4 +111,23 @@ func RegisterLifecycle(lc fx.Lifecycle, srv *grpc.Server, cfg *config.Config, lo
 			return nil
 		},
 	})
+}
+
+func metricsUnaryInterceptor(m *metrics.Metrics) grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (any, error) {
+		start := time.Now()
+		resp, err := handler(ctx, req)
+		duration := time.Since(start)
+
+		code := grpcstatus.Code(err)
+		m.GRPCRequestsTotal.WithLabelValues(info.FullMethod, code.String()).Inc()
+		m.GRPCRequestDuration.WithLabelValues(info.FullMethod).Observe(duration.Seconds())
+
+		return resp, err
+	}
 }

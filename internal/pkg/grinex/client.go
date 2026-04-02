@@ -11,6 +11,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/tshahmuratov/usdt_parser/internal/domain/rates/rates_interface"
 	"github.com/tshahmuratov/usdt_parser/internal/domain/rates/rates_model"
+	"github.com/tshahmuratov/usdt_parser/internal/pkg/metrics"
 )
 
 var _ rates_interface.ExchangeClient = (*GrinexClient)(nil)
@@ -31,17 +32,20 @@ type GrinexClient struct {
 	client     *resty.Client
 	baseURL    string
 	depthLimit int
+	metrics    *metrics.Metrics
 }
 
-func NewGrinexClient(baseURL string, timeout time.Duration, depthLimit int) *GrinexClient {
+func NewGrinexClient(baseURL string, timeout time.Duration, depthLimit int, m *metrics.Metrics) *GrinexClient {
 	if timeout == 0 {
 		timeout = 10 * time.Second
 	}
 	c := resty.New().SetTimeout(timeout)
-	return &GrinexClient{client: c, baseURL: baseURL, depthLimit: depthLimit}
+	return &GrinexClient{client: c, baseURL: baseURL, depthLimit: depthLimit, metrics: m}
 }
 
 func (g *GrinexClient) FetchDepth(ctx context.Context) (*rates_model.SpotDepth, error) {
+	start := time.Now()
+
 	req := g.client.R().
 		SetContext(ctx).
 		SetQueryParam("symbol", "usdta7a5")
@@ -52,14 +56,17 @@ func (g *GrinexClient) FetchDepth(ctx context.Context) (*rates_model.SpotDepth, 
 
 	r, err := req.Get(g.baseURL + "/api/v1/spot/depth")
 	if err != nil {
+		g.recordFetch(start, "error")
 		return nil, fmt.Errorf("%w: %v", rates_model.ErrFetchFailed, err)
 	}
 	if r.IsError() {
+		g.recordFetch(start, "error")
 		return nil, fmt.Errorf("%w: status %d", rates_model.ErrFetchFailed, r.StatusCode())
 	}
 
 	var resp depthResponse
 	if err := json.NewDecoder(bytes.NewReader(r.Body())).Decode(&resp); err != nil {
+		g.recordFetch(start, "error")
 		return nil, fmt.Errorf("%w: %v", rates_model.ErrFetchFailed, err)
 	}
 
@@ -72,6 +79,7 @@ func (g *GrinexClient) FetchDepth(ctx context.Context) (*rates_model.SpotDepth, 
 	for _, e := range resp.Asks {
 		entry, err := parseEntry(e)
 		if err != nil {
+			g.recordFetch(start, "error")
 			return nil, fmt.Errorf("%w: parse ask: %v", rates_model.ErrFetchFailed, err)
 		}
 		depth.Asks = append(depth.Asks, entry)
@@ -79,12 +87,22 @@ func (g *GrinexClient) FetchDepth(ctx context.Context) (*rates_model.SpotDepth, 
 	for _, e := range resp.Bids {
 		entry, err := parseEntry(e)
 		if err != nil {
+			g.recordFetch(start, "error")
 			return nil, fmt.Errorf("%w: parse bid: %v", rates_model.ErrFetchFailed, err)
 		}
 		depth.Bids = append(depth.Bids, entry)
 	}
 
+	g.recordFetch(start, "ok")
 	return depth, nil
+}
+
+func (g *GrinexClient) recordFetch(start time.Time, status string) {
+	if g.metrics == nil {
+		return
+	}
+	g.metrics.GrinexFetchDuration.Observe(time.Since(start).Seconds())
+	g.metrics.GrinexFetchTotal.WithLabelValues(status).Inc()
 }
 
 func parseEntry(e depthEntry) (rates_model.SpotEntry, error) {

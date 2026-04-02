@@ -36,7 +36,7 @@ func TestRateService_GetRates_Singleflight(t *testing.T) {
 
 	client := new(countingClient)
 	persister := mocks.NewMockAsyncRatePersister(t)
-	svc := rates_service.NewRateService(client, persister)
+	svc := rates_service.NewRateService(client, persister, nil)
 
 	// FetchDepth blocks briefly to allow goroutines to coalesce
 	client.On("FetchDepth", mock.Anything).Run(func(_ mock.Arguments) {
@@ -75,7 +75,7 @@ func TestRateService_GetRates(t *testing.T) {
 	t.Run("success with TopN", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
 		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister)
+		svc := rates_service.NewRateService(client, persister, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(depth, nil)
 		persister.On("Enqueue", mock.Anything).Return()
@@ -92,7 +92,7 @@ func TestRateService_GetRates(t *testing.T) {
 	t.Run("client error", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
 		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister)
+		svc := rates_service.NewRateService(client, persister, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(nil, rates_model.ErrFetchFailed)
 
@@ -103,7 +103,7 @@ func TestRateService_GetRates(t *testing.T) {
 	t.Run("enqueue is called", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
 		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister)
+		svc := rates_service.NewRateService(client, persister, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(depth, nil)
 		persister.On("Enqueue", mock.Anything).Return()
@@ -116,7 +116,7 @@ func TestRateService_GetRates(t *testing.T) {
 	t.Run("calc error", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
 		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister)
+		svc := rates_service.NewRateService(client, persister, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(depth, nil)
 
@@ -127,7 +127,7 @@ func TestRateService_GetRates(t *testing.T) {
 	t.Run("fallback on fetch error after success", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
 		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister)
+		svc := rates_service.NewRateService(client, persister, nil)
 
 		// First call succeeds — populates fallback
 		client.On("FetchDepth", mock.Anything).Return(depth, nil).Once()
@@ -149,7 +149,7 @@ func TestRateService_GetRates(t *testing.T) {
 	t.Run("cold start fetch error returns error", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
 		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister)
+		svc := rates_service.NewRateService(client, persister, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(nil, rates_model.ErrFetchFailed)
 
@@ -160,7 +160,7 @@ func TestRateService_GetRates(t *testing.T) {
 	t.Run("successful fetch updates fallback", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
 		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister)
+		svc := rates_service.NewRateService(client, persister, nil)
 		persister.On("Enqueue", mock.Anything).Return()
 
 		depth1 := &rates_model.SpotDepth{

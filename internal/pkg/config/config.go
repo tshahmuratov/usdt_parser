@@ -18,6 +18,11 @@ type Config struct {
 	OTel     OTelConfig
 	Logger   LoggerConfig
 	Persist  PersistConfig
+	Metrics  MetricsConfig
+}
+
+type MetricsConfig struct {
+	Port int
 }
 
 type DatabaseConfig struct {
@@ -90,6 +95,7 @@ func Load() (*Config, error) {
 	f.Int("persist-queue-size", 1000, "Persistence queue size")
 	f.Int("persist-retry-max", 3, "Persistence max retries")
 	f.Duration("persist-retry-delay", 100*time.Millisecond, "Persistence retry base delay")
+	f.Int("metrics-port", 9090, "Prometheus metrics HTTP port")
 	_ = f.Parse([]string{})
 
 	// Load env vars (prefix APP_, delimiter _)
@@ -142,6 +148,9 @@ func Load() (*Config, error) {
 			RetryMax:   k.Int("persist.retry.max"),
 			RetryDelay: k.Duration("persist.retry.delay"),
 		},
+		Metrics: MetricsConfig{
+			Port: k.Int("metrics.port"),
+		},
 	}
 
 	// Defaults for zero values
@@ -189,6 +198,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.Persist.RetryDelay == 0 {
 		cfg.Persist.RetryDelay = 100 * time.Millisecond
+	}
+	if cfg.Metrics.Port == 0 {
+		cfg.Metrics.Port = 9090
 	}
 
 	return cfg, nil

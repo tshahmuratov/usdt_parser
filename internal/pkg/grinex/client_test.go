@@ -26,7 +26,7 @@ func TestGrinexClient_FetchDepth(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := grinex.NewGrinexClient(server.URL, 0, 20)
+		client := grinex.NewGrinexClient(server.URL, 0, 20, nil)
 		depth, err := client.FetchDepth(context.Background())
 
 		require.NoError(t, err)
@@ -42,7 +42,7 @@ func TestGrinexClient_FetchDepth(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := grinex.NewGrinexClient(server.URL, 0, 20)
+		client := grinex.NewGrinexClient(server.URL, 0, 20, nil)
 		_, err := client.FetchDepth(context.Background())
 		require.Error(t, err)
 	})
@@ -53,7 +53,7 @@ func TestGrinexClient_FetchDepth(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := grinex.NewGrinexClient(server.URL, 0, 20)
+		client := grinex.NewGrinexClient(server.URL, 0, 20, nil)
 		_, err := client.FetchDepth(context.Background())
 		require.Error(t, err)
 	})

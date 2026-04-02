@@ -39,7 +39,7 @@ func BenchmarkFetchDepth_20Entries(b *testing.B) {
 	}))
 	defer server.Close()
 
-	client := grinex.NewGrinexClient(server.URL, 0, 20)
+	client := grinex.NewGrinexClient(server.URL, 0, 20, nil)
 	ctx := context.Background()
 
 	b.ReportAllocs()
@@ -60,7 +60,7 @@ func BenchmarkFetchDepth_200Entries(b *testing.B) {
 	}))
 	defer server.Close()
 
-	client := grinex.NewGrinexClient(server.URL, 0, 0)
+	client := grinex.NewGrinexClient(server.URL, 0, 0, nil)
 	ctx := context.Background()
 
 	b.ReportAllocs()

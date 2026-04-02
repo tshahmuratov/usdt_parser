@@ -24,7 +24,7 @@ func newTestWorker(repo *mocks.MockRateRepository, queueSize int) *database.Pers
 			RetryDelay: 1 * time.Millisecond,
 		},
 	}
-	return database.NewPersistenceWorker(repo, cfg, zap.NewNop())
+	return database.NewPersistenceWorker(repo, cfg, zap.NewNop(), nil)
 }
 
 func TestPersistenceWorker_EnqueueAndSave(t *testing.T) {
