@@ -17,15 +17,25 @@ type Config struct {
 	Grinex   GrinexConfig
 	OTel     OTelConfig
 	Logger   LoggerConfig
+	Persist  PersistConfig
 }
 
 type DatabaseConfig struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	Name     string
-	SSLMode  string
+	Host            string
+	Port            int
+	User            string
+	Password        string
+	Name            string
+	SSLMode         string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+}
+
+type PersistConfig struct {
+	QueueSize  int
+	RetryMax   int
+	RetryDelay time.Duration
 }
 
 func (d DatabaseConfig) DSN() string {
@@ -68,10 +78,16 @@ func Load() (*Config, error) {
 	f.Int("grpc-port", 50051, "gRPC server port")
 	f.String("grinex-base-url", "https://grinex.io", "Grinex API base URL")
 	f.Duration("grinex-timeout", 10*time.Second, "Grinex API timeout")
+	f.Int("db-max-open-conns", 25, "Database max open connections")
+	f.Int("db-max-idle-conns", 5, "Database max idle connections")
+	f.Duration("db-conn-max-lifetime", 5*time.Minute, "Database connection max lifetime")
 	f.String("otel-endpoint", "localhost:4317", "OTel collector endpoint")
 	f.Bool("otel-insecure", true, "OTel insecure connection")
 	f.String("log-level", "info", "Log level")
 	f.Bool("log-dev", false, "Development logging mode")
+	f.Int("persist-queue-size", 1000, "Persistence queue size")
+	f.Int("persist-retry-max", 3, "Persistence max retries")
+	f.Duration("persist-retry-delay", 100*time.Millisecond, "Persistence retry base delay")
 	_ = f.Parse([]string{})
 
 	// Load env vars (prefix APP_, delimiter _)
@@ -93,12 +109,15 @@ func Load() (*Config, error) {
 
 	cfg := &Config{
 		Database: DatabaseConfig{
-			Host:     k.String("db.host"),
-			Port:     k.Int("db.port"),
-			User:     k.String("db.user"),
-			Password: k.String("db.password"),
-			Name:     k.String("db.name"),
-			SSLMode:  k.String("db.sslmode"),
+			Host:            k.String("db.host"),
+			Port:            k.Int("db.port"),
+			User:            k.String("db.user"),
+			Password:        k.String("db.password"),
+			Name:            k.String("db.name"),
+			SSLMode:         k.String("db.sslmode"),
+			MaxOpenConns:    k.Int("db.max.open.conns"),
+			MaxIdleConns:    k.Int("db.max.idle.conns"),
+			ConnMaxLifetime: k.Duration("db.conn.max.lifetime"),
 		},
 		GRPC: GRPCConfig{
 			Port: k.Int("grpc.port"),
@@ -114,6 +133,11 @@ func Load() (*Config, error) {
 		Logger: LoggerConfig{
 			Level: k.String("log.level"),
 			Dev:   k.Bool("log.dev"),
+		},
+		Persist: PersistConfig{
+			QueueSize:  k.Int("persist.queue.size"),
+			RetryMax:   k.Int("persist.retry.max"),
+			RetryDelay: k.Duration("persist.retry.delay"),
 		},
 	}
 
@@ -141,6 +165,24 @@ func Load() (*Config, error) {
 	}
 	if cfg.Logger.Level == "" {
 		cfg.Logger.Level = "info"
+	}
+	if cfg.Database.MaxOpenConns == 0 {
+		cfg.Database.MaxOpenConns = 25
+	}
+	if cfg.Database.MaxIdleConns == 0 {
+		cfg.Database.MaxIdleConns = 5
+	}
+	if cfg.Database.ConnMaxLifetime == 0 {
+		cfg.Database.ConnMaxLifetime = 5 * time.Minute
+	}
+	if cfg.Persist.QueueSize == 0 {
+		cfg.Persist.QueueSize = 1000
+	}
+	if cfg.Persist.RetryMax == 0 {
+		cfg.Persist.RetryMax = 3
+	}
+	if cfg.Persist.RetryDelay == 0 {
+		cfg.Persist.RetryDelay = 100 * time.Millisecond
 	}
 
 	return cfg, nil

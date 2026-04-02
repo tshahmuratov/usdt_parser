@@ -27,5 +27,6 @@ func toGetRatesResponse(rate *rates_model.Rate) *ratesv1.GetRatesResponse {
 		Ask:       float64(rate.Ask),
 		Bid:       float64(rate.Bid),
 		Timestamp: timestamppb.New(rate.FetchedAt),
+		FetchedAt: timestamppb.New(rate.FetchedAt),
 	}
 }
