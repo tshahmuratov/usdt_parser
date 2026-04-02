@@ -15,8 +15,9 @@ var Module = fx.Module("database",
 	fx.Provide(
 		NewDB,
 		NewRateRepo,
+		NewPersistenceWorker,
 		fx.Annotate(
-			NewPersistenceWorker,
+			func(pw *PersistenceWorker) rates_interface.AsyncRatePersister { return pw },
 			fx.As(new(rates_interface.AsyncRatePersister)),
 		),
 	),

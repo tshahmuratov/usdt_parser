@@ -5,6 +5,7 @@ import (
 	"github.com/tshahmuratov/usdt_parser/internal/domain/rates"
 	"github.com/tshahmuratov/usdt_parser/internal/pkg/config"
 	"github.com/tshahmuratov/usdt_parser/internal/pkg/database"
+	"github.com/tshahmuratov/usdt_parser/internal/pkg/debug"
 	"github.com/tshahmuratov/usdt_parser/internal/pkg/grinex"
 	"github.com/tshahmuratov/usdt_parser/internal/pkg/logger"
 	"github.com/tshahmuratov/usdt_parser/internal/pkg/metrics"
@@ -18,6 +19,7 @@ func New() *fx.App {
 		database.Module,
 		grinex.Module,
 		metrics.Module,
+		debug.Module,
 		rates.Module,
 		grpcserver.Module,
 	)

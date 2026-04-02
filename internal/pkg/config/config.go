@@ -19,6 +19,11 @@ type Config struct {
 	Logger   LoggerConfig
 	Persist  PersistConfig
 	Metrics  MetricsConfig
+	Debug    DebugConfig
+}
+
+type DebugConfig struct {
+	Port int
 }
 
 type MetricsConfig struct {
@@ -96,6 +101,7 @@ func Load() (*Config, error) {
 	f.Int("persist-retry-max", 3, "Persistence max retries")
 	f.Duration("persist-retry-delay", 100*time.Millisecond, "Persistence retry base delay")
 	f.Int("metrics-port", 9090, "Prometheus metrics HTTP port")
+	f.Int("debug-port", 6060, "pprof debug HTTP port (0 to disable)")
 	_ = f.Parse([]string{})
 
 	// Load env vars (prefix APP_, delimiter _)
@@ -151,6 +157,9 @@ func Load() (*Config, error) {
 		Metrics: MetricsConfig{
 			Port: k.Int("metrics.port"),
 		},
+		Debug: DebugConfig{
+			Port: k.Int("debug.port"),
+		},
 	}
 
 	// Defaults for zero values
@@ -201,6 +210,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.Metrics.Port == 0 {
 		cfg.Metrics.Port = 9090
+	}
+	if cfg.Debug.Port == 0 {
+		cfg.Debug.Port = 6060
 	}
 
 	return cfg, nil

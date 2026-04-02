@@ -4,6 +4,7 @@ mocks/
 *.exe
 *.test
 *.out
+*.prof
 .env*
 .DS_Store
 .idea/

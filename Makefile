@@ -1,4 +1,4 @@
-.PHONY: build test lint run generate docker-build migrate escape
+.PHONY: build test lint run generate docker-build migrate escape load-test profile
 
 build:
 	go build -o bin/app cmd/app/main.go
@@ -24,3 +24,12 @@ migrate:
 
 escape:
 	@go build -gcflags='-m' ./... 2>&1 | grep "escapes to heap" | grep "^internal/" | sort
+
+load-test:
+	@./scripts/load-test.sh localhost:50051 50 60s
+
+profile:
+	@echo "Capturing 30s CPU profile..."
+	@curl -sS -o cpu.prof http://localhost:6060/debug/pprof/profile?seconds=30
+	@echo "Opening profile in browser..."
+	@go tool pprof -http=:8080 cpu.prof
