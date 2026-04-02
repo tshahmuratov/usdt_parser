@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package rates.v1;
+
+option go_package = "github.com/tshahmuratov/usdt_parser/gen/rates/v1;ratesv1";
+
+import "google/protobuf/timestamp.proto";
+
+service RateService {
+  rpc GetRates(GetRatesRequest) returns (GetRatesResponse);
+}
+
+message GetRatesRequest {
+  CalcMethod method = 1;
+}
+
+message CalcMethod {
+  oneof method {
+    TopN top_n = 1;
+    AvgNM avg_nm = 2;
+  }
+}
+
+message TopN {
+  int32 n = 1;
+}
+
+message AvgNM {
+  int32 n = 1;
+  int32 m = 2;
+}
+
+message GetRatesResponse {
+  double ask = 1;
+  double bid = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
