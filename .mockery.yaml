@@ -7,7 +7,6 @@ packages:
     interfaces:
       ExchangeClient:
       RateRepository:
-      AsyncRatePersister:
   github.com/tshahmuratov/usdt_parser/internal/domain/rates/rates_handler:
     interfaces:
       RateServicer:

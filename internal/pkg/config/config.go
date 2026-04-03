@@ -17,7 +17,6 @@ type Config struct {
 	Grinex   GrinexConfig
 	OTel     OTelConfig
 	Logger   LoggerConfig
-	Persist  PersistConfig
 	Metrics  MetricsConfig
 	Debug    DebugConfig
 }
@@ -40,12 +39,6 @@ type DatabaseConfig struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
-}
-
-type PersistConfig struct {
-	QueueSize  int
-	RetryMax   int
-	RetryDelay time.Duration
 }
 
 func (d DatabaseConfig) DSN() string {
@@ -97,9 +90,6 @@ func Load() (*Config, error) {
 	f.Bool("otel-insecure", true, "OTel insecure connection")
 	f.String("log-level", "info", "Log level")
 	f.Bool("log-dev", false, "Development logging mode")
-	f.Int("persist-queue-size", 1000, "Persistence queue size")
-	f.Int("persist-retry-max", 3, "Persistence max retries")
-	f.Duration("persist-retry-delay", 100*time.Millisecond, "Persistence retry base delay")
 	f.Int("metrics-port", 9090, "Prometheus metrics HTTP port")
 	f.Int("debug-port", 6060, "pprof debug HTTP port (0 to disable)")
 	_ = f.Parse([]string{})
@@ -149,11 +139,6 @@ func Load() (*Config, error) {
 			Level: k.String("log.level"),
 			Dev:   k.Bool("log.dev"),
 		},
-		Persist: PersistConfig{
-			QueueSize:  k.Int("persist.queue.size"),
-			RetryMax:   k.Int("persist.retry.max"),
-			RetryDelay: k.Duration("persist.retry.delay"),
-		},
 		Metrics: MetricsConfig{
 			Port: k.Int("metrics.port"),
 		},
@@ -198,15 +183,6 @@ func Load() (*Config, error) {
 	}
 	if cfg.Database.ConnMaxLifetime == 0 {
 		cfg.Database.ConnMaxLifetime = 5 * time.Minute
-	}
-	if cfg.Persist.QueueSize == 0 {
-		cfg.Persist.QueueSize = 1000
-	}
-	if cfg.Persist.RetryMax == 0 {
-		cfg.Persist.RetryMax = 3
-	}
-	if cfg.Persist.RetryDelay == 0 {
-		cfg.Persist.RetryDelay = 100 * time.Millisecond
 	}
 	if cfg.Metrics.Port == 0 {
 		cfg.Metrics.Port = 9090

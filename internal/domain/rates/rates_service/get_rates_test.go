@@ -35,14 +35,13 @@ func TestRateService_GetRates_Singleflight(t *testing.T) {
 	}
 
 	client := new(countingClient)
-	persister := mocks.NewMockAsyncRatePersister(t)
-	svc := rates_service.NewRateService(client, persister, nil)
+	repo := mocks.NewMockRateRepository(t)
+	svc := rates_service.NewRateService(client, repo, nil)
 
-	// FetchDepth blocks briefly to allow goroutines to coalesce
 	client.On("FetchDepth", mock.Anything).Run(func(_ mock.Arguments) {
 		time.Sleep(50 * time.Millisecond)
 	}).Return(depth, nil)
-	persister.On("Enqueue", mock.Anything).Return()
+	repo.On("Save", mock.Anything, mock.Anything).Return(nil)
 
 	const n = 10
 	var wg sync.WaitGroup
@@ -60,7 +59,6 @@ func TestRateService_GetRates_Singleflight(t *testing.T) {
 	for i, err := range errs {
 		assert.NoError(t, err, "goroutine %d", i)
 	}
-	// Singleflight should coalesce all concurrent calls into 1 FetchDepth invocation
 	assert.Equal(t, int32(1), client.calls.Load(), "expected exactly 1 FetchDepth call")
 }
 
@@ -74,11 +72,11 @@ func TestRateService_GetRates(t *testing.T) {
 
 	t.Run("success with TopN", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
-		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister, nil)
+		repo := mocks.NewMockRateRepository(t)
+		svc := rates_service.NewRateService(client, repo, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(depth, nil)
-		persister.On("Enqueue", mock.Anything).Return()
+		repo.On("Save", mock.Anything, mock.Anything).Return(nil)
 
 		method := rates_model.TopN{N: 0}
 		rate, err := svc.GetRates(context.Background(), method)
@@ -91,8 +89,8 @@ func TestRateService_GetRates(t *testing.T) {
 
 	t.Run("client error", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
-		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister, nil)
+		repo := mocks.NewMockRateRepository(t)
+		svc := rates_service.NewRateService(client, repo, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(nil, rates_model.ErrFetchFailed)
 
@@ -100,23 +98,35 @@ func TestRateService_GetRates(t *testing.T) {
 		require.ErrorIs(t, err, rates_model.ErrFetchFailed)
 	})
 
-	t.Run("enqueue is called", func(t *testing.T) {
+	t.Run("save is called", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
-		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister, nil)
+		repo := mocks.NewMockRateRepository(t)
+		svc := rates_service.NewRateService(client, repo, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(depth, nil)
-		persister.On("Enqueue", mock.Anything).Return()
+		repo.On("Save", mock.Anything, mock.Anything).Return(nil)
 
 		_, err := svc.GetRates(context.Background(), rates_model.TopN{N: 0})
 		require.NoError(t, err)
-		persister.AssertCalled(t, "Enqueue", mock.Anything)
+		repo.AssertCalled(t, "Save", mock.Anything, mock.Anything)
+	})
+
+	t.Run("save error", func(t *testing.T) {
+		client := mocks.NewMockExchangeClient(t)
+		repo := mocks.NewMockRateRepository(t)
+		svc := rates_service.NewRateService(client, repo, nil)
+
+		client.On("FetchDepth", mock.Anything).Return(depth, nil)
+		repo.On("Save", mock.Anything, mock.Anything).Return(rates_model.ErrStoreFailed)
+
+		_, err := svc.GetRates(context.Background(), rates_model.TopN{N: 0})
+		require.ErrorIs(t, err, rates_model.ErrStoreFailed)
 	})
 
 	t.Run("calc error", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
-		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister, nil)
+		repo := mocks.NewMockRateRepository(t)
+		svc := rates_service.NewRateService(client, repo, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(depth, nil)
 
@@ -126,18 +136,16 @@ func TestRateService_GetRates(t *testing.T) {
 
 	t.Run("fallback on fetch error after success", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
-		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister, nil)
+		repo := mocks.NewMockRateRepository(t)
+		svc := rates_service.NewRateService(client, repo, nil)
 
-		// First call succeeds — populates fallback
 		client.On("FetchDepth", mock.Anything).Return(depth, nil).Once()
-		persister.On("Enqueue", mock.Anything).Return()
+		repo.On("Save", mock.Anything, mock.Anything).Return(nil)
 
 		rate, err := svc.GetRates(context.Background(), rates_model.TopN{N: 0})
 		require.NoError(t, err)
 		assert.Equal(t, rates_model.Price(80), rate.Ask)
 
-		// Second call fails — should use fallback
 		client.On("FetchDepth", mock.Anything).Return(nil, rates_model.ErrFetchFailed).Once()
 
 		rate, err = svc.GetRates(context.Background(), rates_model.TopN{N: 0})
@@ -148,8 +156,8 @@ func TestRateService_GetRates(t *testing.T) {
 
 	t.Run("cold start fetch error returns error", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
-		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister, nil)
+		repo := mocks.NewMockRateRepository(t)
+		svc := rates_service.NewRateService(client, repo, nil)
 
 		client.On("FetchDepth", mock.Anything).Return(nil, rates_model.ErrFetchFailed)
 
@@ -159,9 +167,9 @@ func TestRateService_GetRates(t *testing.T) {
 
 	t.Run("successful fetch updates fallback", func(t *testing.T) {
 		client := mocks.NewMockExchangeClient(t)
-		persister := mocks.NewMockAsyncRatePersister(t)
-		svc := rates_service.NewRateService(client, persister, nil)
-		persister.On("Enqueue", mock.Anything).Return()
+		repo := mocks.NewMockRateRepository(t)
+		svc := rates_service.NewRateService(client, repo, nil)
+		repo.On("Save", mock.Anything, mock.Anything).Return(nil)
 
 		depth1 := &rates_model.SpotDepth{
 			Asks:      entries(80, 81, 82),
@@ -175,19 +183,16 @@ func TestRateService_GetRates(t *testing.T) {
 			Timestamp: later,
 		}
 
-		// First call with depth1
 		client.On("FetchDepth", mock.Anything).Return(depth1, nil).Once()
 		rate, err := svc.GetRates(context.Background(), rates_model.TopN{N: 0})
 		require.NoError(t, err)
 		assert.Equal(t, rates_model.Price(80), rate.Ask)
 
-		// Second call with depth2 — fallback should be updated
 		client.On("FetchDepth", mock.Anything).Return(depth2, nil).Once()
 		rate, err = svc.GetRates(context.Background(), rates_model.TopN{N: 0})
 		require.NoError(t, err)
 		assert.Equal(t, rates_model.Price(90), rate.Ask)
 
-		// Third call fails — should use depth2 (latest fallback)
 		client.On("FetchDepth", mock.Anything).Return(nil, rates_model.ErrFetchFailed).Once()
 		rate, err = svc.GetRates(context.Background(), rates_model.TopN{N: 0})
 		require.NoError(t, err)

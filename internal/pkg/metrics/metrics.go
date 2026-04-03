@@ -24,9 +24,6 @@ type Metrics struct {
 	// Singleflight
 	SingleflightTotal  prometheus.Counter
 	SingleflightShared prometheus.Counter
-
-	// Queue
-	PersistQueueDepth prometheus.Gauge
 }
 
 func NewMetrics() *Metrics {
@@ -77,11 +74,6 @@ func NewMetrics() *Metrics {
 		SingleflightShared: promauto.NewCounter(prometheus.CounterOpts{
 			Name: "singleflight_shared_total",
 			Help: "Total number of singleflight calls that shared a result.",
-		}),
-
-		PersistQueueDepth: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "persist_queue_depth",
-			Help: "Current number of items in the persistence queue.",
 		}),
 	}
 }

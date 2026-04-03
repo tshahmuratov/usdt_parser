@@ -14,14 +14,14 @@ import (
 
 type RateService struct {
 	client    rates_interface.ExchangeClient
-	persister rates_interface.AsyncRatePersister
+	repo      rates_interface.RateRepository
 	sfg       singleflight.Group
 	lastDepth atomic.Pointer[rates_model.SpotDepth]
 	metrics   *metrics.Metrics
 }
 
-func NewRateService(client rates_interface.ExchangeClient, persister rates_interface.AsyncRatePersister, m *metrics.Metrics) *RateService {
-	return &RateService{client: client, persister: persister, metrics: m}
+func NewRateService(client rates_interface.ExchangeClient, repo rates_interface.RateRepository, m *metrics.Metrics) *RateService {
+	return &RateService{client: client, repo: repo, metrics: m}
 }
 
 func (s *RateService) GetRates(ctx context.Context, method rates_model.CalcMethod) (*rates_model.Rate, error) {
@@ -46,7 +46,9 @@ func (s *RateService) GetRates(ctx context.Context, method rates_model.CalcMetho
 		FetchedAt: depth.Timestamp,
 	}
 
-	s.persister.Enqueue(rate)
+	if err := s.repo.Save(ctx, rate); err != nil {
+		return nil, fmt.Errorf("save rate: %w", err)
+	}
 
 	return rate, nil
 }
@@ -64,7 +66,6 @@ func (s *RateService) fetchDepth(ctx context.Context) (*rates_model.SpotDepth, e
 	}
 
 	if err != nil {
-		// Fallback to last known depth
 		if cached := s.lastDepth.Load(); cached != nil {
 			if s.metrics != nil {
 				s.metrics.FallbackTotal.Inc()
